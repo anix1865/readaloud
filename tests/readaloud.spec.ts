@@ -135,7 +135,7 @@ test('narrate an article in my voice, privately', async ({ users }) => {
 
 // Opt-in (READALOUD_LONG=1): a real article URL, scraped by firecrawl and
 // narrated across several checkpointed job steps, then stitched into one MP3.
-// Costs ~$0.25 of fal credits.
+// Costs ~9 Chatterbox requests (~$1.80 on the DeepSpace free tier).
 test('narrate a real article from a URL across multiple job steps', async ({ users }) => {
   test.skip(!process.env.READALOUD_LONG, 'set READALOUD_LONG=1 to run')
   test.setTimeout(15 * 60_000)

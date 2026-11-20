@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom'
 import { Seo } from '../components/Seo'
 import { seo } from '../seo'
+import { LIMITS, approxMinutes } from '../lib/limits'
 
 const steps = [
   ['Record 10 seconds', 'Read a sentence or two aloud, or upload a clip. It stays private to your account.'],
@@ -37,7 +38,7 @@ export default function Landing() {
             <Link to="/home" className="inline-flex items-center rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90">
               Make your first episode
             </Link>
-            <span className="text-sm text-muted-foreground">Free while in preview · 3 episodes a day</span>
+            <span className="text-sm text-muted-foreground">Free preview · {LIMITS.dailyEpisodes} episodes a day, up to ~{approxMinutes(LIMITS.maxChars)} min each</span>
           </div>
 
           <ol className="mt-24 grid gap-6 sm:grid-cols-3">

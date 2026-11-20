@@ -40,7 +40,7 @@ describe('chunkText', () => {
 
   it('keeps a max-size article to a bounded number of fal calls', () => {
     const text = 'This is a typical sentence in an article. '.repeat(LIMITS.maxChars / 42)
-    expect(chunkText(text).length).toBeLessThanOrEqual(Math.ceil(LIMITS.maxChars / (LIMITS.chunkChars * 0.8)))
+    expect(chunkText(text).length).toBeLessThanOrEqual(Math.ceil(LIMITS.maxChars / (LIMITS.chunkChars * 0.85)))
   })
 })
 

@@ -5,29 +5,8 @@
 
 import { Mp3Encoder } from '@breezystack/lamejs'
 
-// ── Limits (shared by actions, job and UI) ─────────────────────────────────
-
-export const LIMITS = {
-  /** Max article length. ~10k chars ≈ 11 min of audio ≈ $0.40 of fal. */
-  maxChars: 10_000,
-  minChars: 200,
-  /** Characters per Chatterbox request. Short inputs keep prosody stable. */
-  chunkChars: 400,
-  /** Chunks synthesized per job step (submitted to fal in parallel). */
-  chunksPerStep: 4,
-  /** Episodes a user may start per rolling 24h. */
-  dailyEpisodes: 3,
-  /** Article-URL fetches a user may make per rolling 24h (successful or not). */
-  dailyScrapes: 15,
-  /** Episodes the whole app may start per rolling 24h: a ceiling on owner spend. */
-  appDailyEpisodes: 60,
-  /** Voice clip bounds. The client normalizes clips to 24 kHz mono WAV. */
-  clipMinSec: 5,
-  clipMaxSec: 30,
-  clipMaxBytes: 2 * 1024 * 1024,
-  /** fal spend cap per chunk request (400 chars at $0.04/1k ≈ $0.016). */
-  maxCostPerChunkUsd: 0.05,
-} as const
+export { LIMITS } from '../lib/limits'
+import { LIMITS } from '../lib/limits'
 
 // ── Text ───────────────────────────────────────────────────────────────────
 

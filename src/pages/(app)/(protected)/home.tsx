@@ -15,8 +15,9 @@ import { callAction } from '@/lib/actions'
 import { formatDuration } from '@/lib/clip'
 import type { Episode } from '@/schemas/episodes-schema'
 import { isStale, isWorking } from '@/lib/episodes'
+import { LIMITS, approxMinutes } from '@/lib/limits'
 
-const MAX_CHARS = 10_000
+const MAX_CHARS = LIMITS.maxChars
 
 export default function LibraryPage() {
   const { userId } = useAuth()
@@ -32,7 +33,10 @@ export default function LibraryPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="font-serif text-3xl tracking-tight text-foreground">Library</h1>
-      <p className="mt-2 text-muted-foreground">Turn an article into audio narrated in your own voice.</p>
+      <p className="mt-2 text-muted-foreground">
+        Turn an article into audio narrated in your own voice. Up to ~{approxMinutes(LIMITS.maxChars)} minutes per episode,{' '}
+        {LIMITS.dailyEpisodes} episodes a day.
+      </p>
 
       {voices.status !== 'loading' && !voice ? (
         <div className="mt-8 flex flex-col items-start gap-3 rounded-xl border border-dashed border-input bg-card p-6" data-testid="no-voice">
@@ -81,7 +85,7 @@ function NewEpisode({ disabled, voiceLabel }: { disabled: boolean; voiceLabel?: 
     const r = await callAction<{ truncated: boolean }>('createEpisode', params)
     setSubmitting(false)
     if (!r.success) return error('Could not start narration', r.error)
-    success('Narration started', r.data.truncated ? 'The article was long, so only the first ~11 minutes will be read.' : undefined)
+    success('Narration started', r.data.truncated ? `The article was long, so only the first ~${approxMinutes(LIMITS.maxChars)} minutes will be read.` : undefined)
     setUrl('')
     setText('')
     setTitle('')
