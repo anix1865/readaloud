@@ -108,7 +108,7 @@ npx deepspace deploy             # commit first
 
 ## How this was built
 
-I directed a coding agent (Claude Code). The agent scaffolded the app, read the DeepSpace docs and SDK source, wrote the code and tests, deployed it, and investigated failures.
+I built this together with a coding agent (Claude Code), and we split the work. I owned the product: the idea, the feature set, the choice of voice model, the safety requirements, and the call on what shipped. The agent did the engineering: it scaffolded the app, read the DeepSpace docs and SDK source, wrote the code and tests, deployed it, and investigated failures.
 
 These were found during testing rather than assumed:
 - `ctx.continue` counts as a job attempt, so job-level retries don't help after the first step. Chunks retry inside a step instead.
@@ -118,4 +118,10 @@ These were found during testing rather than assumed:
 - The flat $0.20 free-tier charge per request, read from the billing ledger.
 - Local dev sharing production file storage.
 
-<!-- TODO (you): in your own words, add what you decided, what you checked yourself, and what you changed. -->
+**What I decided**
+- **The product:** an app that reads articles aloud in your own voice. You upload an article and a short voice clip, and uploading a new clip changes the voice.
+- **The model:** I compared open-source alternatives to ElevenLabs, looked at whether Orpheus could clone voices safely, and chose Chatterbox for its short-clip cloning and built-in watermark.
+- **Safety first:** I asked for a security review of the whole app before shipping. That review produced the consent gate, the closed integrations proxy, the quota ledger and the storage limits.
+
+**What I verified myself**
+- I didn't test the live app by hand. Verification is the automated unit and end-to-end suites described above, run against production.
