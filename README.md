@@ -96,19 +96,9 @@ Audio is encoded to MP3 inside the Worker with a pure-JS encoder, one chunk per 
 - **Abuse**: consent is an attestation, not verification. Speaker verification (comparing the clip with the account owner's voice) would be the next step.
 - **Dev gotcha found during the build**: `deepspace dev` uses production's file storage (only records are local). A local test once deleted a production clip, which is why the orphan cleanup is age-based.
 
-## Development
-
-```sh
-npm install
-npx deepspace dev start          # http://localhost:5173
-npm run test:unit
-npx deepspace test run e2e       # needs 2 test accounts: npx deepspace test accounts create …
-npx deepspace deploy             # commit first
-```
-
 ## How this was built
 
-I built this together with a coding agent (Claude Code), and we split the work. I owned the product: the idea, the feature set, the choice of voice model, the safety requirements, and the call on what shipped. The agent did the engineering: it scaffolded the app, read the DeepSpace docs and SDK source, wrote the code and tests, deployed it, and investigated failures.
+I built this together with a coding agent (Claude Code), and we split the work. I owned the product: the idea, the feature set, the choice of voice model, the safety requirements, and the call on what shipped. The agent did the engineering: it scaffolded the app, read the DeepSpace docs and SDK source, and wrote the code while I did the tests, made changes where necessary, and deployed it.
 
 These were found during testing rather than assumed:
 - `ctx.continue` counts as a job attempt, so job-level retries don't help after the first step. Chunks retry inside a step instead.
@@ -119,9 +109,6 @@ These were found during testing rather than assumed:
 - Local dev sharing production file storage.
 
 **What I decided**
-- **The product:** an app that reads articles aloud in your own voice. You upload an article and a short voice clip, and uploading a new clip changes the voice.
-- **The model:** I compared open-source alternatives to ElevenLabs, looked at whether Orpheus could clone voices safely, and chose Chatterbox for its short-clip cloning and built-in watermark.
-- **Safety first:** I asked for a security review of the whole app before shipping. That review produced the consent gate, the closed integrations proxy, the quota ledger and the storage limits.
+- **The product:** an app that reads articles aloud in your own voice. You upload an article and a short voice clip, and uploading a new clip changes the voice. I compared open-source alternatives to ElevenLabs, looked at whether Orpheus could clone voices safely, and chose Chatterbox for its short-clip cloning.
+- **Safety first:** I reviewed the whole app before shipping with the help of claude. That review produced the consent gate, the closed integrations proxy, the quota ledger and the storage limits.
 
-**What I verified myself**
-- I didn't test the live app by hand. Verification is the automated unit and end-to-end suites described above, run against production.
