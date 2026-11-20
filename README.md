@@ -1,6 +1,6 @@
 # Readaloud
 
-**Live:** https://readaloud.app.space
+**Live:** https://readaloud.app.space · **Code:** https://github.com/anix1865/readaloud
 
 Paste an article link (or text), record a 5–30 second sample of your voice, and Readaloud returns the article as an MP3 narrated in that voice. Uploading a new clip replaces the voice.
 
