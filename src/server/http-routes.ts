@@ -240,6 +240,15 @@ export function registerAuthAndIntegrationRoutes(app: Hono<AppContext>): void {
     const config = lookupOwn(integrations, integrationName)
     const billingMode = config?.billing ?? 'developer'
 
+    // Readaloud: the browser never calls integrations directly. fal and
+    // firecrawl are owner-billed and only reachable from server actions and
+    // jobs, which validate input and enforce per-user limits first. Without
+    // this, any signed-in user could run arbitrary fal models on the owner's
+    // account through this proxy.
+    if (!config?.browser) {
+      return c.json({ error: 'This integration is not available from the browser' }, 403)
+    }
+
     // Sign-in is required unless the app opts this integration into anonymous
     // use; developer billing would otherwise let any visitor spend the owner's
     // credits. User billing always needs a caller to bill.

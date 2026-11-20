@@ -68,11 +68,19 @@ export class AppCronRoom extends CronRoom<Env> {
 /** Runs durable background work defined in src/jobs.ts. */
 export class AppJobRoom extends JobRoom<Env> {
   constructor(state: DurableObjectState, env: Env) {
+    // Jobs spend owner credits (fal), so browsers never touch the queue:
+    // `createEpisode` validates input, applies per-user limits and enqueues
+    // server-side with enqueueJob. Users follow progress through their own
+    // `episodes` record instead, so job rows (which name other users'
+    // episodes) stay admin-only to read as well.
     super(state, env, {
       authorizeWrite: async (user) => {
         if (user.userId.startsWith('anon-')) return false
-        const role = await resolveAppRole(env, user.userId)
-        return role === 'member' || role === 'admin'
+        return (await resolveAppRole(env, user.userId)) === 'admin'
+      },
+      authorizeRead: async (user) => {
+        if (user.userId.startsWith('anon-')) return false
+        return (await resolveAppRole(env, user.userId)) === 'admin'
       },
     })
   }

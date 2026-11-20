@@ -16,9 +16,7 @@ export interface NavItem {
 }
 
 export const nav: NavItem[] = [
-  { path: '/home', label: 'Home' },
-  { path: '/settings', label: 'Settings' },
-  // The /api-status debug page still exists — add
-  // `{ path: '/api-status', label: 'API Status', devOnly: true }` to surface it.
+  { path: '/home', label: 'Library' },
+  { path: '/voice', label: 'My voice' },
   // ── Features add nav items below this line ──
 ]

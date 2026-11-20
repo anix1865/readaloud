@@ -17,6 +17,7 @@
  * they stay consistent across every preset.
  */
 @theme {
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
   /* shadcn core tokens — slate (default): neutral gray on near-black, indigo accent */
   --color-background: #0a0a0a;
   --color-foreground: #e8eaed;
