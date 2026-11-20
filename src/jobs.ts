@@ -47,8 +47,13 @@ const sleep = (ms: number, signal: AbortSignal) =>
   })
 
 /** Unwrap an integration result whether or not the endpoint nests `data`. */
-function body<T>(r: { success: boolean; data?: unknown; error?: string }): T {
-  if (!r.success) throw new Error(r.error ?? 'Integration call failed')
+function body<T>(r: { success: boolean; data?: unknown; error?: string; code?: string }): T {
+  if (!r.success) {
+    if (r.code === 'insufficient_credits' || /insufficient credits/i.test(r.error ?? '')) {
+      throw new Error('Readaloud is temporarily out of narration credits. Please try again later.')
+    }
+    throw new Error(r.error ?? 'Integration call failed')
+  }
   const d = r.data as Record<string, unknown>
   return (d && typeof d === 'object' && 'data' in d && Object.keys(d).length === 1 ? d.data : d) as T
 }
@@ -168,8 +173,10 @@ async function narrate(job: Job, ctx: JobContext, env: Env): Promise<unknown> {
     // instead and anything that escapes is final.
     const message = err instanceof Error ? err.message : String(err)
     await update({ status: 'failed', error: message.slice(0, 300) })
-    // A failed narration doesn't count toward the daily limit.
-    await tools.remove('usage', `usage-${episodeId}`).catch(() => {})
+    // Refund the daily quota only when nothing was spent on fal yet;
+    // otherwise deliberately failing jobs (e.g. deleting the voice mid-run)
+    // would be a way to spend owner credits without using up quota.
+    if (state.next === 0) await tools.remove('usage', `usage-${episodeId}`).catch(() => {})
     throw err
   }
 }

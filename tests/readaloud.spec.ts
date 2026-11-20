@@ -43,7 +43,8 @@ async function setVoice(page: Page) {
   await expect(save).toBeDisabled() // consent gate
   await page.getByTestId('consent').click()
   await save.click()
-  await expect(page.getByTestId('current-voice').locator('audio')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Voice saved')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('current-voice').locator('audio')).toBeVisible()
 }
 
 test('signed-out visitors cannot use the app', async ({ page }) => {
@@ -130,4 +131,30 @@ test('narrate an article in my voice, privately', async ({ users }) => {
   // Clean up so reruns stay under the daily limit.
   const del = await action(alice.page, 'deleteEpisode', { episodeId })
   expect(del.body).toMatchObject({ success: true })
+})
+
+// Opt-in (READALOUD_LONG=1): a real article URL, scraped by firecrawl and
+// narrated across several checkpointed job steps, then stitched into one MP3.
+// Costs ~$0.25 of fal credits.
+test('narrate a real article from a URL across multiple job steps', async ({ users }) => {
+  test.skip(!process.env.READALOUD_LONG, 'set READALOUD_LONG=1 to run')
+  test.setTimeout(15 * 60_000)
+  const [alice] = await users(1)
+  await alice.page.goto('/home')
+  const started = await action(alice.page, 'createEpisode', { url: 'https://en.wikipedia.org/wiki/Lighthouse_keeper' })
+  console.log('createEpisode', started.body)
+  expect(started.body.success).toBe(true)
+  const { episodeId } = started.body.data
+
+  await alice.page.goto(`/episodes/${episodeId}`)
+  const player = alice.page.getByTestId('episode-player')
+  await expect(player).toHaveAttribute('data-status', 'generating', { timeout: 60_000 })
+  await expect(player).toHaveAttribute('data-status', 'ready', { timeout: 14 * 60_000 })
+  const duration = await alice.page.evaluate(async () => {
+    const audio = document.querySelector<HTMLAudioElement>('[data-testid="episode-player"] audio')!
+    if (audio.readyState < 1) await new Promise((res) => audio.addEventListener('loadedmetadata', res, { once: true }))
+    return audio.duration
+  })
+  console.log('long episode duration (s)', duration)
+  expect(duration).toBeGreaterThan(60)
 })

@@ -18,6 +18,7 @@ import {
   platformWorkerFetch,
   resolveAppRole,
   resolveSessionReadAuth,
+  appFiles,
   SESSION_COOKIE,
   verifyAgentToken,
   verifyJwt,
@@ -30,6 +31,7 @@ import {
 } from 'deepspace/worker'
 import type { ExpoAuthBridgeOptions, JwtVerifierConfig, VerifyResult } from 'deepspace/worker'
 import { integrations } from '../integrations.js'
+import { createActionTools } from './action-routes.js'
 import type { AppContext, Env } from '../../worker.js'
 
 function jwtConfig(env: Env): JwtVerifierConfig {
@@ -306,6 +308,15 @@ export function registerPlatformProxyRoutes(app: Hono<AppContext>): void {
     const userId = auth?.userId ?? null
 
     const url = new URL(c.req.url)
+
+    // Readaloud: the only browser write is a voice-clip upload. Everything
+    // else that writes (episode audio, deletes) happens server-side. Without
+    // this guard any signed-in user could fill the owner's storage allocation.
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      const refusal = await guardBrowserFileWrite(c.req.raw, url, c.env)
+      if (refusal) return refusal
+    }
+
     const platformUrl = new URL(c.req.url)
     platformUrl.pathname = url.pathname.replace('/api/files', '/internal/files')
 
@@ -444,4 +455,48 @@ export function registerStaticRoutes(app: Hono<AppContext>): void {
     url.pathname = '/'
     return c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw))
   })
+}
+
+/** Max browser upload: a 30 s 24 kHz mono WAV is ~1.44 MB, plus form overhead. */
+const MAX_BROWSER_UPLOAD_BYTES = 2.5 * 1024 * 1024
+const ORPHAN_GRACE_MS = 10 * 60 * 1000
+const MAX_RECENT_ORPHANS = 2
+
+/**
+ * Allow exactly one kind of browser file write: a single-request upload to
+ * the caller's private folder, small enough to be a voice clip, while the
+ * caller holds at most one other clip. Returns a refusal or null.
+ */
+async function guardBrowserFileWrite(req: Request, url: URL, env: Env): Promise<Response | null> {
+  const refuse = (status: number, error: string) => Response.json({ error }, { status })
+  const auth = await resolveAuth(req, env)
+  if (!auth) return refuse(401, 'Sign in required')
+  const scope = url.searchParams.get('scope') ?? 'self'
+  if (req.method !== 'POST' || url.pathname !== '/api/files/upload' || scope !== 'self') {
+    return refuse(403, 'This file operation is not available from the browser')
+  }
+  const length = Number(req.headers.get('content-length') ?? NaN)
+  if (!Number.isFinite(length)) return refuse(411, 'Upload must declare its length')
+  if (length > MAX_BROWSER_UPLOAD_BYTES) return refuse(413, 'Voice clips are limited to 2.5 MB')
+
+  // Orphans are clips that never became (or are no longer) the caller's
+  // voice, e.g. an upload whose setVoice call never happened. Old orphans are
+  // deleted; recent ones may belong to an upload still in flight, so they are
+  // kept but capped. Note: `deepspace dev` shares file storage with
+  // production (only records are local), so this must never delete a file
+  // that could still be in use.
+  const files = appFiles(env, { scope: 'self', userId: auth.userId })
+  const voice = await createActionTools(env, auth.userId, '').get('voices', auth.userId)
+  const currentKey = voice.success
+    ? (voice.data as unknown as { record?: { data?: { fileKey?: string } } }).record?.data?.fileKey
+    : undefined
+  const listed = await files.list({ limit: 100 })
+  const orphans = listed.files.filter((f) => !f.relativeKey.startsWith('episodes/') && f.key !== currentKey)
+  const cutoff = Date.now() - ORPHAN_GRACE_MS
+  const old = orphans.filter((f) => Date.parse(f.uploaded) < cutoff)
+  await Promise.all(old.map((f) => files.delete(f.key).catch(() => {})))
+  if (orphans.length - old.length >= MAX_RECENT_ORPHANS) {
+    return refuse(429, 'Too many voice uploads in a short time. Try again in a few minutes.')
+  }
+  return null
 }

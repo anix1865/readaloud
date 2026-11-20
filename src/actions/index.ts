@@ -164,13 +164,19 @@ export const actions: Record<string, ActionHandler<Env>> = {
     // deleting an episode never refunds it. Failed narrations are refunded
     // by the job (it removes their ledger row).
     const dayAgo = Date.now() - 24 * 60 * 60 * 1000
+    const inLastDay = (r: Rec<{ kind: string }>) => !!r.createdAt && Date.parse(r.createdAt) > dayAgo
     const usage = await tools.query('usage', { where: { createdBy: userId }, limit: 500 })
     if (!usage.success) return usage
-    const recent = (usage.data as unknown as { records: Rec<unknown>[] }).records.filter(
-      (r) => r.createdAt && Date.parse(r.createdAt) > dayAgo,
-    )
-    if (recent.length >= LIMITS.dailyEpisodes) {
+    const mineToday = (usage.data as unknown as { records: Rec<{ kind: string }>[] }).records.filter(inLastDay)
+    if (mineToday.filter((r) => r.data.kind === 'narration').length >= LIMITS.dailyEpisodes) {
       return fail(`Daily limit reached (${LIMITS.dailyEpisodes} episodes per 24 hours).`, 'rate_limited')
+    }
+    // App-wide ceiling, so many accounts can't add up to unbounded spend.
+    const all = await tools.query('usage', { where: { kind: 'narration' }, orderBy: 'createdAt', orderDir: 'desc', limit: LIMITS.appDailyEpisodes })
+    if (!all.success) return all
+    const appToday = (all.data as unknown as { records: Rec<{ kind: string }>[] }).records.filter(inLastDay)
+    if (appToday.length >= LIMITS.appDailyEpisodes) {
+      return fail('Readaloud has reached its daily narration capacity. Please try again tomorrow.', 'app_capacity')
     }
 
     let title = typeof params.title === 'string' ? params.title.trim() : ''
@@ -180,6 +186,11 @@ export const actions: Record<string, ActionHandler<Env>> = {
       const url = validateArticleUrl(params.url.trim())
       if (!url) return fail('Enter a public http(s) article URL.', 'invalid_url')
       sourceUrl = url.toString()
+      // Every scrape is billed, successful or not, so it has its own quota.
+      if (mineToday.filter((r) => r.data.kind === 'scrape').length >= LIMITS.dailyScrapes) {
+        return fail('Too many article fetches today. Paste the text instead.', 'rate_limited')
+      }
+      await tools.create('usage', { kind: 'scrape', episodeId: '', chars: 0 })
       const scraped = await tools.integration<{
         data?: { markdown?: string; metadata?: { title?: string; ogTitle?: string } }
       }>('firecrawl/scrape', { url: sourceUrl, formats: ['markdown'], onlyMainContent: true })
